@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
+// Helpers embedded in NGENUITY for output binding retries and shutdown checks.
 namespace NGENUITY.LocalRepair
 {
     internal static class SessionExit
