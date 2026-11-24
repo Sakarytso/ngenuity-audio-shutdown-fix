@@ -1,3 +1,4 @@
+# Exclude build outputs, downloaded packages, and logs.
 /.build/
 *.dll
 *.delta
