@@ -6,6 +6,7 @@ param(
     [Parameter(Mandatory)][string]$Destination
 )
 
+# Compile the recovery helpers and build a patched copy of a matching original DLL.
 $ErrorActionPreference = 'Stop'
 if ($PSVersionTable.PSVersion.Major -lt 7 -or [Environment]::Version.Major -lt 10) {
     throw 'Build with PowerShell 7 running on .NET 10 or later.'
