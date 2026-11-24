@@ -1,2 +1,3 @@
+# Normalize text and preserve Windows batch file line endings.
 * text=auto
 *.cmd text eol=crlf
