@@ -5,6 +5,7 @@ param(
     [string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA 'NGENUITY\current')
 )
 
+# Check the installed DLL or switch between a verified patch and the signed backup.
 $ErrorActionPreference = 'Stop'
 $originalHash = '78048CDFBF5F5A4321425A047F47C267883FCEBC4ADEF791A941E3292FE1F334'
 $patchedHash = '62987D4345083218F93236143BE5618C81271D54440E5A0CF2E98BAC8F405B9B'
