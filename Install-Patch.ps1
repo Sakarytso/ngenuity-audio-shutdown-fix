@@ -4,6 +4,7 @@ param(
     [switch]$VerifyOnly
 )
 
+# Download verified build tools and use the local original DLL to prepare the patch for installation.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $switch = Join-Path $PSScriptRoot 'Switch-Version.ps1'
