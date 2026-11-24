@@ -1,0 +1,8 @@
+/.build/
+*.dll
+*.delta
+*.exe
+*.nupkg
+*.pdb
+*.zip
+*.log
