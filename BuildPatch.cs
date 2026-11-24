@@ -8,6 +8,7 @@ using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using static Mono.Cecil.Cil.OpCodes;
 
+// Verify the stock assembly hashes and apply version-specific IL edits.
 public static class NgInternalPatch
 {
     public const string OriginalHash = "78048CDFBF5F5A4321425A047F47C267883FCEBC4ADEF791A941E3292FE1F334";
