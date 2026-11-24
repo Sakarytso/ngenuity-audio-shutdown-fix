@@ -1,57 +1,40 @@
-# NGENUITY 3.2.0 — 8-channel silence and shutdown errors
+# NGENUITY 3.2.0 — 8-channel audio and shutdown fix
 
 [简体中文](README.zh-CN.md)
 
-An unofficial patch for a specific Windows build of HyperX NGENUITY 3.2.0. It retries a failed output binding for the Cloud III Wireless and prevents NGENUITY from relaunching its helper processes while exiting.
-
-## Method 1 — Double-click installer
-
-1. Download [`NGENUITY-3.2.0-Quick-Install.zip`](https://github.com/imba1367954987/ngenuity-audio-shutdown-fix/releases/latest/download/NGENUITY-3.2.0-Quick-Install.zip).
-2. Right-click the ZIP, choose **Extract All**, and open the extracted folder.
-3. Double-click **`Install-Patch.cmd`**. Wait until it says **Patch installed**. NGENUITY restarts, so playback briefly stops.
-
-The installer downloads and verifies its build tools, then generates the DLL from your matching NGENUITY 3.2.0 installation. It may need to download about 105 MB for portable PowerShell. It checks the generated file and keeps the signed original. To undo the change, double-click **`Restore-HP-original.cmd`** in the same folder. Finish firmware updates before installing.
-
-If PowerShell reports that a downloaded script is blocked, review the ZIP and its contents first. If you trust the download and Windows shows an **Unblock** checkbox in the ZIP's **Properties**, select it there and extract the ZIP again. [Microsoft's downloaded-file guidance](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/unblock-file)
+An unofficial patch for a specific Windows x64 build of HyperX NGENUITY 3.2.0, tested with the Cloud III Wireless.
 
 ## What happened
 
-- **8-channel playback went silent across applications.** Selecting the physical Cloud III Wireless output immediately restored sound. Restarting NGENUITY alone also restored the virtual route.
-- **Windows displayed repeated error dialogs during shutdown.** One observed shutdown produced 16 application-popup events for `hxn-srv-audio-engine.exe` with `0xc0000142` (`STATUS_DLL_INIT_FAILED`). The NGENUITY log recorded new audio-engine launches after shutdown had already begun. [Microsoft NTSTATUS reference](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/596a1078-e883-4972-9bbc-49e60bebca55)
-
-These log excerpts omit timestamps and machine identifiers.
-
-```text
-Target audio endpoint found. FriendlyName: [Cloud III Wireless]
-Received Error message, action="SetOutputDeviceName", message=Failed to set output device: SetOutputDeviceName failed with code -8
-Received Error message, action="SetChatOutputDeviceName", message=Failed to set chat output device: SetOutputDeviceName failed with code -8
-
-Start App Shutdown...
-AudioEngineManager StopAsync()
-hxn-srv-audio-engine started successfully.
-AudioEngineManager StopAsync()
-hxn-srv-audio-engine started successfully.
-```
+- **8-channel audio stopped.** Apps using NGENUITY's virtual output went silent while direct headset output still worked. The log showed the headset was detected, but `SetOutputDeviceName` and `SetChatOutputDeviceName` returned `-8`. Restarting NGENUITY restored playback. [Original troubleshooting video](https://www.bilibili.com/video/BV1NzK56vERo/)
+- **Repeated shutdown popups.** On one shutdown, Windows recorded 16 `0xc0000142` errors for `hxn-srv-audio-engine.exe`. The NGENUITY log showed the app relaunching the audio engine after it began shutting down. [Microsoft NTSTATUS reference](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/596a1078-e883-4972-9bbc-49e60bebca55)
 
 ## What the patch changes
 
-1. **Output binding.** In the stock managed DLL, the error reply was logged without scheduling another bind. The patch uses the existing request path to retry the same selected headset up to three times per failed main or chat binding. After each failure, it waits 0.3, 1, and 2 seconds respectively before sending the next request. A successful response, a device change, a disconnected engine, or shutdown cancels the relevant pending retry. The audio engine's response time affects the total recovery time.
-2. **Shutdown.** The stock launcher could restart a child after it exited during application teardown. The main window also applied its ordinary close-to-tray behavior to a system exit request. The patch lets an application or OS exit proceed through that window, retains its existing firmware-update check, and enters the existing teardown once. It checks for shutdown at the launcher entry points and again before starting a process, including after asynchronous waits. An already-disconnected NetMQ endpoint is treated as closed during cleanup. [Windows shutdown messages](https://learn.microsoft.com/en-us/windows/win32/shutdown/wm-queryendsession)
+- **Output binding.** The app retries the same headset up to three times per main or chat output after a `-8` reply. It schedules the attempts **0.3, 1, and 2 seconds** after successive failures. A successful reply clears the retry. The audio engine's response time also affects recovery.
+- **Shutdown.** The main window lets a system exit proceed when no firmware update is running. Once app exit begins, cleanup starts once, already closed IPC connections are handled, and the app stops launching helper processes. [Windows shutdown messages](https://learn.microsoft.com/en-us/windows/win32/shutdown/wm-queryendsession)
 
-Only the managed `NGENUITY.dll` is replaced. The resulting file lacks HP's publisher signature. The original signed file is saved for rollback. The native audio engine, its plug-in, the Windows driver, and headset firmware are outside the patch.
+The patch replaces the managed `NGENUITY.dll` with a locally built unsigned DLL and saves the HP-signed original for rollback.
 
 ## Validation and limits
 
-- On the affected Windows 11 PC, IL verification and behavioral checks passed. In a simulated series of failures, the three delays measured about 307, 1000, and 2000 ms. Tests also covered both `-8` reply formats, cancellation, an already-disconnected IPC endpoint, and blocking new launches during application exit.
-- A Windows session-ending request was sent to NGENUITY's window on that PC. The application and its helpers exited without a new helper launch or popup during the observation window. The test did not shut down Windows.
-- After restarting the patched app, the headset's main and chat bindings succeeded. A test tone submitted to the 8-channel endpoint produced signal at both the virtual endpoint and the physical headset's meter.
-- Automatic recovery from a naturally recurring dropout and a full Windows shutdown were not observed in these tests. A separate native engine heap-corruption event (`0xc0000374`) remains unexplained.
+- On Windows 11, IL verification passed. Tests with simulated `-8` replies measured about 307, 1000, and 2000 ms between each failure and its retry. They also covered cancellation and the retry limit.
+- In an app-only test, a simulated Windows exit notification closed NGENUITY and its helpers. No helper relaunches or Windows popups were recorded during that test.
+- After reopening the patched app, the main and chat outputs bound successfully. A test tone registered on the meters for both the 8-channel virtual output and the physical headset.
+- Recovery from a naturally recurring dropout and a full Windows shutdown remain unverified. A separately observed native engine crash with `0xc0000374` is outside the scope of this patch.
+
+## Method 1 — Quick install
+
+1. [Download the v1.0.0 installer (ZIP)](https://github.com/Sakarytso/ngenuity-audio-shutdown-fix/releases/download/v1.0.0/NGENUITY-3.2.0-Quick-Install.zip) and choose **Extract All**.
+2. In the extracted folder, double-click **`Install-Patch.cmd`** and wait for **Patch installed**.
+
+Finish any firmware update first. The installer checks the exact build and restarts NGENUITY, briefly interrupting playback. It needs internet access to download verified build tools. If the installer cannot reuse a matching PowerShell installation, it downloads the portable version (about 110 MB).
+
+If PowerShell blocks scripts extracted from the download, review the ZIP and its contents. If you trust the download and the ZIP's **Properties** shows **Unblock**, select it and extract the ZIP again. [Microsoft download guidance](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/unblock-file)
 
 ## Method 2 — Build from source
 
-Use Windows x64, PowerShell 7.6.9 on .NET 10, [Mono.Cecil 0.11.6](https://www.nuget.org/packages/Mono.Cecil/0.11.6), and a stock HyperX NGENUITY 3.2.0 installation that matches the fingerprints in the scripts. An application with the same version label can still have different files. The installer checks the exact SHA-256 of the original DLL, its protocol DLL, the launcher, and the generated patch. A mismatch stops the operation.
-
-Run the following commands in PowerShell 7.6.9 from this repository's directory.
+Use PowerShell 7.6.9, [Mono.Cecil 0.11.6](https://www.nuget.org/packages/Mono.Cecil/0.11.6), and an original NGENUITY installation that matches the SHA-256 checks in [the builder](BuildPatch.cs) and [the installer](Switch-Version.ps1). Run these commands from the repository folder after any firmware update has finished.
 
 ```powershell
 $ErrorActionPreference = 'Stop'
@@ -67,22 +50,12 @@ $cecil = Join-Path $work 'cecil'
 Expand-Archive -LiteralPath $package -DestinationPath $cecil -Force
 $candidate = Join-Path $work 'NGENUITY.patched.dll'
 .\Build.ps1 -OriginalDirectory $install -CecilDirectory (Join-Path $cecil 'lib\netstandard2.0') -Destination $candidate
-```
-
-The tested original `NGENUITY.dll` hashes to `78048CDFBF5F5A4321425A047F47C267883FCEBC4ADEF791A941E3292FE1F334`. The tested candidate hashes to `62987D4345083218F93236143BE5618C81271D54440E5A0CF2E98BAC8F405B9B`. The quick installer builds the same candidate from the signed original. If a build or a compiler produces a different hash, use a matching build.
-
-## Install and restore
-
-Finish any firmware update before continuing. Applying the patch briefly stops playback while NGENUITY restarts.
-
-```powershell
-.\Switch-Version.ps1 -Mode Status -InstallDirectory $install
 .\Switch-Version.ps1 -Mode Apply -InstallDirectory $install -CandidatePath $candidate
 .\Switch-Version.ps1 -Mode Status -InstallDirectory $install
 ```
 
-Confirm that `Patched` and `BackupValid` are true. A successful start includes `[LocalAudioPatch] NGENUITY 3.2.0 local repair loaded.` in NGENUITY's log. The installer restores the signed backup if it cannot verify patched startup.
+After installation, `Patched` and `BackupValid` should both be true. If the installer cannot verify patched startup, it attempts to restore the original.
 
-To roll back, run `.\Switch-Version.ps1 -Mode Restore -InstallDirectory $install` or open `Restore-HP-original.cmd` for the default installation path. The signed backup is stored as `NGENUITY.3.2.0.HP-original.dll` in the parent of the `current` directory. A vendor update can replace the patched file. Check the vendor's release before trying this patch on a newer build.
+## Rollback
 
-For the original restart workaround, see the [Bilibili tutorial](https://www.bilibili.com/video/BV1NzK56vERo/).
+Double-click `Restore-HP-original.cmd` for the default installation path. For a custom path, set `$install` to that path and run `.\Switch-Version.ps1 -Mode Restore -InstallDirectory $install`. The signed backup is named `NGENUITY.3.2.0.HP-original.dll` and is stored one folder above `current`. A vendor update may replace the patch.
