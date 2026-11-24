@@ -18,10 +18,11 @@ The patch replaces the managed `NGENUITY.dll` with a locally built unsigned DLL 
 
 ## Validation and limits
 
+- **Follow-up on the affected Windows 11 PC.** A full Windows shutdown completed without the audio-engine error popup. When the 8-channel dropout recurred in normal use, playback recovered automatically.
 - On Windows 11, IL verification passed. Tests with simulated `-8` replies measured about 307, 1000, and 2000 ms between each failure and its retry. They also covered cancellation and the retry limit.
 - In an app-only test, a simulated Windows exit notification closed NGENUITY and its helpers. No helper relaunches or Windows popups were recorded during that test.
 - After reopening the patched app, the main and chat outputs bound successfully. A test tone registered on the meters for both the 8-channel virtual output and the physical headset.
-- Recovery from a naturally recurring dropout and a full Windows shutdown remain unverified. A separately observed native engine crash with `0xc0000374` is outside the scope of this patch.
+- A separately observed native engine crash with `0xc0000374` is outside the scope of this patch.
 
 ## Method 1 — Quick install
 
